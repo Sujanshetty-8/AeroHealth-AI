@@ -1,0 +1,54 @@
+{
+    "General Physician": [
+        "fever",
+        "cold",
+        "cough",
+        "sneezing",
+        "headache",
+        "vomiting",
+        "body pain",
+        "stomach pain"
+    ],
+
+    "Cardiology": [
+        "chest pain",
+        "heart pain",
+        "palpitations"
+    ],
+
+    "Dermatology": [
+        "skin rash",
+        "itching",
+        "allergy"
+    ],
+
+    "Orthopedics": [
+        "fracture",
+        "joint pain",
+        "knee pain",
+        "back pain"
+    ],
+
+    "Neurology": [
+        "migraine",
+        "seizure",
+        "dizziness"
+    ],
+
+    "ENT": [
+        "ear pain",
+        "nose bleed",
+        "throat pain"
+    ],
+
+    "Ophthalmology": [
+        "eye pain",
+        "blurred vision",
+        "red eye"
+    ],
+
+    "Dentist": [
+        "tooth pain",
+        "gum pain"
+    ]
+}
