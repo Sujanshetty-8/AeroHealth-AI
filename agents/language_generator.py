@@ -29,11 +29,108 @@ class LanguageGenerator:
         if context:
 
             context_text = f"""
-
-Additional Context
-
+Additional Context:
 {context}
+"""
 
+        # -----------------------------------
+        # Stage-specific instructions
+        # -----------------------------------
+
+        stage_instruction = ""
+
+        if stage == "ASK_SYMPTOMS":
+
+            stage_instruction = """
+The patient has not provided their symptoms yet.
+
+ONLY ask the patient to describe their symptoms.
+
+Do not ask about medical history.
+Do not diagnose.
+Do not give medical advice.
+Do not ask about duration or severity unless the patient already mentioned it.
+"""
+
+        elif stage == "ASK_NAME":
+
+            stage_instruction = """
+The patient's symptoms and department have already been determined.
+
+ONLY ask the patient for their name.
+
+Do NOT ask about their symptoms again.
+Do NOT ask medical follow-up questions.
+Do NOT diagnose.
+Do NOT provide medical advice.
+"""
+
+        elif stage == "ASK_AGE":
+
+            stage_instruction = """
+The patient's name has already been collected.
+
+ONLY ask the patient for their age.
+
+Do NOT ask about symptoms again.
+Do NOT ask medical follow-up questions.
+Do NOT diagnose.
+Do NOT provide medical advice.
+"""
+
+        elif stage == "SCHEDULER":
+
+
+            stage_instruction = """
+The patient's department has been determined.
+
+The patient has NOT selected a doctor yet.
+
+Your ONLY task is to show the available doctors provided in
+Additional Context and ask the patient which doctor they prefer.
+
+Do NOT ask for an appointment slot yet.
+
+Do NOT say that an appointment has been booked.
+
+Do NOT select a doctor for the patient.
+
+Do NOT invent doctors.
+
+Do NOT invent slots.
+
+Do NOT invent availability.
+
+Only use doctors provided in Additional Context.
+"""
+
+        elif stage == "ASK_SLOT":
+
+            stage_instruction = """
+The patient has already selected a doctor.
+
+Your ONLY task is to ask which available appointment slot
+the patient prefers.
+
+Do NOT ask the patient to select a doctor again.
+
+Do NOT say that the appointment has already been booked.
+
+Use ONLY the available slots provided in Additional Context.
+
+Do NOT invent slots.
+
+Do NOT invent doctors.
+"""
+
+        elif stage == "BOOKING_COMPLETE":
+
+            stage_instruction = """
+The patient has selected a doctor and appointment slot.
+
+Respond briefly that the appointment can be confirmed.
+
+Do NOT invent any doctor or slot.
 """
 
         prompt = f"""
@@ -45,37 +142,38 @@ Latest User Message:
 
 {context_text}
 
-Instructions:
+Stage Instructions:
+{stage_instruction}
+
+General Instructions:
 
 - Reply ONLY as the AeroHealth receptionist.
 - Continue the current booking workflow.
 - Do NOT change the stage.
-- Do NOT answer unrelated questions.
+- Do NOT diagnose the patient.
+- Do NOT provide medical advice.
+- Do NOT ask medical follow-up questions.
+- Do NOT ask questions unrelated to the current stage.
 - Keep the response short and polite.
-
-IMPORTANT:
-
-If additional context is provided,
-use it.
-
-Never invent doctors.
-
-Never invent appointment slots.
-
-Never invent departments.
-
-Only use the information provided in the context.
+- Never invent doctors.
+- Never invent appointment slots.
+- Never invent departments.
+- Only use information provided in the Additional Context.
 """
 
         messages = [
 
-            SystemMessage(content=self.system_prompt)
+            SystemMessage(
+                content=self.system_prompt
+            )
 
         ]
 
         messages.extend(history)
 
-        messages.append(HumanMessage(content=prompt))
+        messages.append(
+            HumanMessage(content=prompt)
+        )
 
         response = llm.invoke(messages)
 
