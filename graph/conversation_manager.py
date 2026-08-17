@@ -127,6 +127,25 @@ class ConversationManager:
                 )
             )
 
+        # -----------------------------
+        # BOOK APPOINTMENT
+        # -----------------------------
+
+        if (
+            patient["doctor"]
+            and patient["slot"]
+            and not self.state["booking_complete"]
+        ):
+
+            booked = self.scheduler.book_appointment(
+                patient["department"],
+                patient["doctor"],
+                patient["slot"]
+            )
+
+            if booked:
+                self.state["booking_complete"] = True
+
 
         # -----------------------------
         # Decide next stage

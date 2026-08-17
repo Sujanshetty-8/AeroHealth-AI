@@ -23,4 +23,8 @@ def get_next_stage(state: ConversationState):
     if patient["slot"] is None:
         return "ASK_SLOT"
 
-    return "BOOKING_COMPLETE"
+    if state["booking_complete"]:
+        return "BOOKING_COMPLETE"
+
+    return "ASK_SLOT"
+
