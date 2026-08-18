@@ -51,13 +51,17 @@ class Scheduler:
 
             value = str(value).strip().upper()
 
-            # Convert common user formats to a standard format
             for fmt in [
                 "%I:%M %p",
                 "%I %p",
+                "%H:%M:%S",
+                "%H:%M"
             ]:
                 try:
-                    return pd.to_datetime(value, format=fmt).strftime("%I:%M %p")
+                    return pd.to_datetime(
+                        value,
+                        format=fmt
+                    ).strftime("%I:%M %p")
                 except:
                     pass
 
@@ -69,16 +73,29 @@ class Scheduler:
 
             excel_slot = normalize_slot(row["Slot"])
 
-            if (
+            department_match = (
                 str(row["Department"]).strip().lower()
                 == department.strip().lower()
-                and
+            )
+
+            doctor_match = (
                 str(row["Doctor"]).strip().lower()
                 == doctor.strip().lower()
-                and
-                bool(row["Available"]) is True
-                and
+            )
+
+            available_match = (
+                row["Available"] == True
+            )
+
+            slot_match = (
                 excel_slot == requested_slot
+            )
+
+            if (
+                department_match
+                and doctor_match
+                and available_match
+                and slot_match
             ):
 
                 df.loc[index, "Available"] = False

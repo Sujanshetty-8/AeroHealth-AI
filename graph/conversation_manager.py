@@ -160,7 +160,7 @@ class ConversationManager:
 
         context = None
 
-        if self.state["stage"] == "SCHEDULER":
+        if self.state["stage"] in  ["SCHEDULER","ASK_SLOT"]:
 
             context = {
 
