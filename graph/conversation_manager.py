@@ -3,6 +3,7 @@ from agents.language_generator import LanguageGenerator
 from agents.triage import Triage
 from graph.router import get_next_stage
 from agents.scheduler import Scheduler
+from tools.time_utils import normalize_slot
 
 from langchain_core.messages import (
     HumanMessage,
@@ -37,6 +38,8 @@ class ConversationManager:
                 "name": None,
 
                 "age": None,
+
+                "phone": None,
 
                 "symptoms": None,
 
@@ -98,7 +101,11 @@ class ConversationManager:
 
         # NEW: Extract slot
         if extracted.get("slot"):
-            patient["slot"] = extracted["slot"]
+            normalized_slot = normalize_slot(
+                extracted["slot"]
+            )
+            if normalized_slot:
+                patient["slot"] = normalized_slot
 
 
         # -----------------------------
@@ -138,10 +145,12 @@ class ConversationManager:
         ):
 
             booked = self.scheduler.book_appointment(
-                patient["department"],
-                patient["doctor"],
-                patient["slot"]
-            )
+            patient["department"],
+            patient["doctor"],
+            patient["slot"],
+            patient["name"],
+            patient["age"]
+        )
 
             if booked:
                 self.state["booking_complete"] = True
