@@ -7,6 +7,8 @@ class Scheduler:
 
     def get_available_slots(self, department):
 
+        today = date.today().isoformat()
+
         doctors = (
             supabase
             .table("doctors")
@@ -23,13 +25,14 @@ class Scheduler:
         for doctor in doctors.data:
 
             slots = (
-                supabase
-                .table("appointment_slots")
-                .select("slot_time")
-                .eq("doctor_id", doctor["id"])
-                .eq("available", True)
-                .execute()
-            )
+            supabase
+            .table("appointment_slots")
+            .select("slot_time")
+            .eq("doctor_id", doctor["id"])
+            .eq("schedule_date", today)
+            .eq("available", True)
+            .execute()
+        )
 
             if not slots.data:
                 continue
@@ -137,7 +140,7 @@ class Scheduler:
         # Today's date
         # -----------------------------
 
-        today = date.today().isoformat()
+        #today = date.today().isoformat()
 
 
         # -----------------------------
@@ -145,15 +148,14 @@ class Scheduler:
         # -----------------------------
 
         slot_result = (
-            supabase
-            .table("appointment_slots")
-            .select("id")
-            .eq("schedule_date", today)
-            .eq("doctor_id", doctor_id)
-            .eq("slot_time", slot_time_24)
-            .eq("available", True)
-            .execute()
-        )
+        supabase
+        .table("appointment_slots")
+        .select("id")
+        .eq("doctor_id", doctor_id)
+        .eq("slot_time", slot_time_24)
+        .eq("available", True)
+        .execute()
+    )
 
         if not slot_result.data:
 

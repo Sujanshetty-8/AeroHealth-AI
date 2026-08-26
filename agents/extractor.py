@@ -55,6 +55,34 @@ Extract ONLY the patient's age.
 Do NOT interpret the response as a doctor or slot.
 """
 
+
+        #ask phone number
+        elif stage == "ASK_PHONE":
+
+            stage_instruction = """
+The conversation is currently asking for the patient's phone number.
+
+Extract ONLY the patient's phone number.
+
+The phone number may contain spaces or hyphens.
+
+Examples:
+
+User: 9876543210
+Output:
+"phone": "9876543210"
+
+User: 98765 43210
+Output:
+"phone": "9876543210"
+
+User: my number is 98765-43210
+Output:
+"phone": "9876543210"
+
+Do NOT interpret the phone number as age, doctor, or slot.
+"""
+
         elif stage == "SCHEDULER":
 
             stage_instruction = """
@@ -102,7 +130,9 @@ Do NOT interpret the time as a doctor.
             return {
                 "name": None,
                 "age": None,
+                "phone": None,
                 "symptoms": None,
                 "doctor": None,
                 "slot": None
+                
             }

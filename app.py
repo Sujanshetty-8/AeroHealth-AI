@@ -1,32 +1,31 @@
 from graph.conversation_manager import ConversationManager
-from tools.guard import is_hospital_query
+from services.slot_generator import SlotGenerator
+
+
+# --------------------------------
+# Generate today's appointment slots
+# --------------------------------
+
+slot_generator = SlotGenerator()
+slot_generator.generate_today_slots()
+
+
+# --------------------------------
+# Start conversation
+# --------------------------------
 
 manager = ConversationManager()
-
 print("="*50)
 print("AeroHealth AI")
 print("="*50)
 
 while True:
 
-    user=input("\nYou : ")
+    user = input("\nYou : ")
 
-    if user=="exit":
-
+    if user.lower() == "exit":
         break
 
-    if not is_hospital_query(user):
+    reply = manager.process(user)
 
-        print(
-
-            "\nReceptionist :",
-
-            "I'm sorry, I can only assist with hospital-related services."
-
-        )
-
-        continue
-
-    reply=manager.process(user)
-
-    print("\nReceptionist :",reply)
+    print("\nReceptionist :", reply)

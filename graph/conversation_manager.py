@@ -77,6 +77,9 @@ class ConversationManager:
         if extracted.get("age"):
             patient["age"] = extracted["age"]
 
+        if extracted.get("phone"):
+            patient["phone"] = extracted["phone"]
+
         if extracted.get("symptoms"):
             patient["symptoms"] = extracted["symptoms"]
 
