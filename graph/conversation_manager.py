@@ -144,6 +144,9 @@ class ConversationManager:
         if (
             patient["doctor"]
             and patient["slot"]
+            and patient["name"]
+            and patient["age"]
+            and patient["phone"]
             and not self.state["booking_complete"]
         ):
 
@@ -152,7 +155,8 @@ class ConversationManager:
             patient["doctor"],
             patient["slot"],
             patient["name"],
-            patient["age"]
+            patient["age"],
+            patient["phone"]
         )
 
             if booked:

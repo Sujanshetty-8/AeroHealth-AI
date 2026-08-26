@@ -4,6 +4,7 @@ from typing import TypedDict, List, Optional
 class Patient(TypedDict):
     name: Optional[str]
     age: Optional[int]
+    phone: Optional[str]
     symptoms: Optional[str]
     department: Optional[str]
     doctor: Optional[str]
