@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import './App.css';
+import { Bot, User, Send, HeartPulse, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
 function App() {
   const [messages, setMessages] = useState([
@@ -11,8 +11,6 @@ function App() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Create a unique session ID for this chat session
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
   const messagesEndRef = useRef(null);
 
@@ -39,7 +37,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/chat', {
+      const response = await fetch('/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,71 +74,101 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <div className="background-glow glow-1"></div>
-      <div className="background-glow glow-2"></div>
-      
-      <main className="chat-interface">
-        <header className="chat-header">
-          <div className="logo-container">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="logo-icon"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
-            <h1>AeroHealth AI</h1>
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-slate-50 font-sans">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm">
+            <HeartPulse size={24} />
           </div>
-          <span className="status-badge">
-            <span className="status-dot"></span> Online
-          </span>
-        </header>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800 tracking-tight">AeroHealth AI</h1>
+            <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Receptionist Online
+            </p>
+          </div>
+        </div>
+      </header>
 
-        <div className="chat-messages">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`message-wrapper ${msg.sender}`}>
-              {msg.sender === 'assistant' && (
-                <div className="avatar assistant-avatar">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+      {/* Chat Area */}
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-4xl mx-auto">
+        <div className="flex flex-col space-y-6 pb-4">
+          {messages.map((msg) => {
+            const isAssistant = msg.sender === 'assistant';
+            const isSystem = msg.sender === 'system';
+            
+            return (
+              <div key={msg.id} className={`flex items-start gap-4 ${isAssistant || isSystem ? 'justify-start' : 'justify-end'}`}>
+                {(isAssistant || isSystem) && (
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${isSystem ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-700'}`}>
+                    {isSystem ? <AlertCircle size={18} /> : <Bot size={20} />}
+                  </div>
+                )}
+                
+                <div className={`flex flex-col gap-1 max-w-[85%] sm:max-w-[75%] ${!isAssistant && !isSystem ? 'items-end' : 'items-start'}`}>
+                  <div className={`px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-sm text-sm sm:text-base leading-relaxed
+                    ${isAssistant ? 'bg-white text-slate-700 border border-slate-100 rounded-tl-sm' : ''}
+                    ${!isAssistant && !isSystem ? 'bg-blue-600 text-white rounded-tr-sm' : ''}
+                    ${isSystem ? 'bg-red-50 text-red-700 border border-red-100 rounded-tl-sm' : ''}
+                  `}>
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    
+                    {msg.isBookingComplete && (
+                      <div className="mt-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg p-3 flex items-center gap-2 text-sm font-medium">
+                        <CheckCircle2 size={18} className="text-emerald-600" />
+                        Appointment Confirmed
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className={`message-bubble ${msg.sender}`}>
-                <p>{msg.text}</p>
-                {msg.isBookingComplete && (
-                  <div className="booking-success">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
-                    Appointment Confirmed
+
+                {!isAssistant && !isSystem && (
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shrink-0 shadow-sm">
+                    <User size={20} />
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
+          
           {isLoading && (
-            <div className="message-wrapper assistant">
-              <div className="avatar assistant-avatar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            <div className="flex items-start gap-4 justify-start">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 shadow-sm">
+                <Bot size={20} />
               </div>
-              <div className="message-bubble typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+              <div className="bg-white text-slate-700 border border-slate-100 px-5 py-4 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-2">
+                <Loader2 size={18} className="animate-spin text-blue-600" />
+                <span className="text-sm font-medium text-slate-500">AeroHealth AI is typing...</span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
+      </main>
 
-        <div className="chat-input-container">
-          <form onSubmit={handleSubmit} className="input-form">
+      {/* Input Area */}
+      <footer className="bg-white border-t border-slate-200 p-4">
+        <div className="max-w-4xl mx-auto relative">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message here..."
+              placeholder="Type your message..."
               disabled={isLoading}
-              className="chat-input"
+              className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 text-base rounded-full pl-6 pr-12 py-3.5 sm:py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <button type="submit" disabled={!input.trim() || isLoading} className="send-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            <button 
+              type="submit" 
+              disabled={!input.trim() || isLoading} 
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
+            >
+              <Send size={18} className="ml-0.5" />
             </button>
           </form>
         </div>
-      </main>
+      </footer>
     </div>
   );
 }

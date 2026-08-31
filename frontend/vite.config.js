@@ -7,5 +7,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true,
+    proxy: {
+      '/chat': 'http://localhost:8000'
+    }
   },
 })
