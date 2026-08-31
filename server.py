@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException
+import os
+import shutil
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from faster_whisper import WhisperModel
 from graph.conversation_manager import ConversationManager
 from services.slot_generator import SlotGenerator
 
@@ -21,6 +24,11 @@ sessions = {}
 # Generate slots once on startup
 slot_generator = SlotGenerator()
 slot_generator.generate_today_slots()
+
+# Initialize Whisper model
+print("Loading Whisper model...")
+whisper_model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
+print("Whisper model loaded!")
 
 class ChatRequest(BaseModel):
     session_id: str
@@ -60,6 +68,23 @@ async def clear_session(session_id: str):
     if session_id in sessions:
         del sessions[session_id]
     return {"status": "cleared"}
+
+@app.post("/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    # Save the uploaded audio temporarily
+    temp_file_path = f"temp_{audio.filename}"
+    with open(temp_file_path, "wb") as buffer:
+        shutil.copyfileobj(audio.file, buffer)
+    
+    try:
+        # Transcribe using faster-whisper
+        segments, info = whisper_model.transcribe(temp_file_path, beam_size=5)
+        text = " ".join([segment.text for segment in segments]).strip()
+        return {"text": text}
+    finally:
+        # Clean up temp file
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 
 if __name__ == "__main__":
     import uvicorn

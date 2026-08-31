@@ -7,6 +7,9 @@ def normalize_slot(value):
         return None
 
     value = str(value).strip().upper()
+    
+    if value == "ANY":
+        return "ANY"
 
     # Normalize common separators
     value = value.replace(".", ":")

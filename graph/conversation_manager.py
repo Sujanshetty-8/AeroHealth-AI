@@ -85,29 +85,33 @@ class ConversationManager:
 
         # NEW: Extract doctor
         if extracted.get("doctor"):
-
-
             selected_doctor = extracted["doctor"].strip().lower()
+            
+            if selected_doctor == "any" and len(self.state["available_doctors"]) > 0:
+                patient["doctor"] = self.state["available_doctors"][0]["doctor"]
+            else:
+                for doctor_data in self.state["available_doctors"]:
+                    actual_doctor = doctor_data["doctor"]
 
-            for doctor_data in self.state["available_doctors"]:
-
-                actual_doctor = doctor_data["doctor"]
-
-                if (
-                    selected_doctor == actual_doctor.lower()
-                    or selected_doctor == actual_doctor.lower().replace("dr. ", "")
-                ):
-                    
-
-                    patient["doctor"] = actual_doctor
-                    break
+                    if (
+                        selected_doctor == actual_doctor.lower()
+                        or selected_doctor == actual_doctor.lower().replace("dr. ", "")
+                    ):
+                        patient["doctor"] = actual_doctor
+                        break
 
         # NEW: Extract slot
         if extracted.get("slot"):
             normalized_slot = normalize_slot(
                 extracted["slot"]
             )
-            if normalized_slot:
+            if normalized_slot == "ANY":
+                doc_name = patient.get("doctor")
+                for doc_data in self.state.get("available_doctors", []):
+                    if doc_data["doctor"] == doc_name and len(doc_data.get("slots", [])) > 0:
+                        patient["slot"] = doc_data["slots"][0]
+                        break
+            elif normalized_slot:
                 patient["slot"] = normalized_slot
 
 

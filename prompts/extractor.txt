@@ -33,7 +33,7 @@ Rules:
 
 1. If a field is not mentioned in the user's message, return null.
 2. Do not guess or infer missing information.
-3. Extract the doctor's name exactly as mentioned by the user.
+3. Do NOT extract a doctor unless the user actually selects or mentions one. If the user indicates they have no preference (e.g., "anyone", "any doctor", "doesn't matter"), extract the exact string "ANY".
 4. Extract the requested appointment time exactly as mentioned by the user.
 5. Extract the patient's phone number exactly as provided, but remove spaces and hyphens.
 6. Do not decide whether the doctor or slot is available.
@@ -41,6 +41,7 @@ Rules:
 8. The scheduler will later check whether the doctor and slot exist in the hospital schedule.
 9. Do not interpret a phone number as an age.
 10. Do not interpret a doctor's name as the patient's name when the conversation is selecting a doctor.
+11. If the user indicates they have no preference for the appointment time (e.g., "any time", "whenever"), extract the exact string "ANY".
 
 Example 1
 

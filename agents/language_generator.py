@@ -133,20 +133,16 @@ Respond briefly that the appointment can be confirmed.
 Do NOT invent any doctor or slot.
 """
 
-        prompt = f"""
-Current Conversation Stage:
-{stage}
+        system_content = f"""{self.system_prompt}
 
-Latest User Message:
-{user_message}
-
+### CURRENT CONVERSATION STATE ###
+Current Stage: {stage}
 {context_text}
 
-Stage Instructions:
+### STAGE INSTRUCTIONS ###
 {stage_instruction}
 
-General Instructions:
-
+### GENERAL INSTRUCTIONS ###
 - Reply ONLY as the AeroHealth receptionist.
 - Continue the current booking workflow.
 - Do NOT change the stage.
@@ -162,17 +158,15 @@ General Instructions:
 """
 
         messages = [
-
             SystemMessage(
-                content=self.system_prompt
+                content=system_content
             )
-
         ]
 
         messages.extend(history)
 
         messages.append(
-            HumanMessage(content=prompt)
+            HumanMessage(content=user_message)
         )
 
         response = llm.invoke(messages)
