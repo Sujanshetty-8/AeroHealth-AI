@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Clean default Vite styles to not conflict with App.css */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
