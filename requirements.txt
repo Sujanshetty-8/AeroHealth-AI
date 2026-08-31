@@ -1,0 +1,10 @@
+langchain
+langchain-ollama
+langchain-google-genai
+langchain-groq
+langchain-openai
+python-dotenv
+fastapi
+uvicorn
+pydantic
+supabase
