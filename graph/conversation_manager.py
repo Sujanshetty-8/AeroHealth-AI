@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from agents.extractor import Extractor
 from agents.language_generator import LanguageGenerator
 from agents.triage import Triage
@@ -15,7 +17,6 @@ class ConversationManager:
 
     def __init__(self, user_id=None):
 
-        # Logged-in Supabase user
         self.user_id = user_id
 
         self.generator = LanguageGenerator()
@@ -76,13 +77,12 @@ class ConversationManager:
 
         text = message.lower().strip()
 
-
         cancellation_phrases = [
 
             "cancel my appointment",
             "cancel the appointment",
             "cancel appointment",
-            "i want to cancel",
+            "i want to cancel the appointment",
             "i need to cancel",
             "please cancel",
             "can you cancel",
@@ -91,7 +91,6 @@ class ConversationManager:
             "cancel it"
 
         ]
-
 
         return any(
             phrase in text
@@ -107,8 +106,7 @@ class ConversationManager:
 
         text = message.lower().strip()
 
-
-        confirmation_words = [
+        confirmation_phrases = [
 
             "yes",
             "yeah",
@@ -120,12 +118,33 @@ class ConversationManager:
             "confirm",
             "please do",
             "go ahead",
-            "yes cancel"
+            "yes cancel",
+            "yes, cancel",
+            "cancel it",
+            "do it"
 
         ]
 
+        if text in confirmation_phrases:
+            return True
 
-        return text in confirmation_words
+        # Handle sentences such as:
+        # "yes please cancel it"
+        # "yes go ahead and cancel"
+
+        if (
+            "yes" in text
+            and "cancel" in text
+        ):
+            return True
+
+        if (
+            "confirm" in text
+            and "cancel" in text
+        ):
+            return True
+
+        return False
 
 
     # =====================================================
@@ -136,8 +155,7 @@ class ConversationManager:
 
         text = message.lower().strip()
 
-
-        negative_words = [
+        negative_phrases = [
 
             "no",
             "nope",
@@ -145,25 +163,129 @@ class ConversationManager:
             "don't",
             "do not",
             "keep it",
-            "don't cancel"
+            "don't cancel",
+            "do not cancel",
+            "no don't cancel"
 
         ]
 
+        if text in negative_phrases:
+            return True
 
-        return text in negative_words
+        if (
+            "don't cancel" in text
+            or "do not cancel" in text
+        ):
+            return True
+
+        return False
+
+
+    # =====================================================
+    # FORMAT APPOINTMENT DATE
+    # =====================================================
+
+    def format_appointment_date(self, date_string):
+
+        if not date_string:
+            return "the scheduled date"
+
+        try:
+
+            date_object = datetime.strptime(
+                date_string,
+                "%Y-%m-%d"
+            )
+
+            return date_object.strftime(
+                "%d %b %Y"
+            )
+
+        except Exception:
+
+            return date_string
+
+
+    # =====================================================
+    # FORMAT APPOINTMENT TIME
+    # =====================================================
+
+    def format_appointment_time(self, time_string):
+
+        if not time_string:
+            return "the scheduled time"
+
+        try:
+
+            time_object = datetime.strptime(
+                time_string,
+                "%H:%M:%S"
+            )
+
+            return time_object.strftime(
+                "%I:%M %p"
+            ).lstrip("0")
+
+        except Exception:
+
+            return time_string
+
+
+    # =====================================================
+    # SAVE CONVERSATION
+    # =====================================================
+
+    def save_conversation(
+        self,
+        user_message,
+        assistant_message
+    ):
+
+        self.history.append(
+            HumanMessage(
+                content=user_message
+            )
+        )
+
+        self.history.append(
+            AIMessage(
+                content=assistant_message
+            )
+        )
+
+        self.state["conversation"].append({
+
+            "user": user_message,
+
+            "assistant": assistant_message
+
+        })
 
 
     # =====================================================
     # CANCELLATION FLOW
+    #
+    # IMPORTANT:
+    # This flow does NOT use the LLM.
     # =====================================================
 
     def process_cancellation(self, user_message):
 
-        # -------------------------------------------------
-        # STEP 1: Initial cancellation request
-        # -------------------------------------------------
+        # =================================================
+        # STEP 1
+        # User has requested cancellation
+        # =================================================
 
         if not self.state["cancellation_requested"]:
+
+            print(
+                "\n========== CANCELLATION =========="
+            )
+
+            print(
+                "Looking for upcoming appointment..."
+            )
+
 
             appointment = (
                 self.scheduler.get_upcoming_appointment(
@@ -172,44 +294,57 @@ class ConversationManager:
             )
 
 
+            # -------------------------------------------------
+            # No appointment found
+            # -------------------------------------------------
+
             if not appointment:
 
-                self.state["cancellation_requested"] = False
+                self.state[
+                    "cancellation_requested"
+                ] = False
 
-                self.state["intent"] = "BOOK_APPOINTMENT"
+                self.state[
+                    "cancellation_appointment"
+                ] = None
 
-                self.state["stage"] = "ASK_SYMPTOMS"
+                self.state[
+                    "intent"
+                ] = "BOOK_APPOINTMENT"
+
+                self.state[
+                    "stage"
+                ] = "ASK_SYMPTOMS"
 
 
                 reply = (
-                    "You don't have any upcoming confirmed "
-                    "appointments to cancel."
+                    "You don't have any upcoming "
+                    "confirmed appointments to cancel."
                 )
 
 
-                self.history.append(
-                    HumanMessage(
-                        content=user_message
-                    )
-                )
-
-                self.history.append(
-                    AIMessage(
-                        content=reply
-                    )
+                self.save_conversation(
+                    user_message,
+                    reply
                 )
 
 
-                self.state["conversation"].append({
-                    "user": user_message,
-                    "assistant": reply
-                })
+                print(
+                    "No upcoming appointment found."
+                )
+
+                print(
+                    "=================================\n"
+                )
 
 
                 return reply
 
 
-            # Save appointment
+            # -------------------------------------------------
+            # Appointment found
+            # -------------------------------------------------
+
             self.state[
                 "cancellation_requested"
             ] = True
@@ -225,28 +360,144 @@ class ConversationManager:
             ] = "CANCEL_CONFIRM"
 
 
-        # -------------------------------------------------
-        # STEP 2: User confirms cancellation
-        # -------------------------------------------------
+            doctor_name = (
+                appointment.get(
+                    "doctor_name",
+                    "your doctor"
+                )
+            )
+
+
+            appointment_date = (
+                self.format_appointment_date(
+                    appointment.get(
+                        "appointment_date"
+                    )
+                )
+            )
+
+
+            appointment_time = (
+                self.format_appointment_time(
+                    appointment.get(
+                        "appointment_time"
+                    )
+                )
+            )
+
+
+            # -------------------------------------------------
+            # IMPORTANT:
+            # No LLM here.
+            # -------------------------------------------------
+
+            reply = (
+
+                f"You have an appointment with "
+                f"{doctor_name} on "
+                f"{appointment_date} at "
+                f"{appointment_time}. "
+                f"Would you like me to cancel it?"
+
+            )
+
+
+            self.save_conversation(
+                user_message,
+                reply
+            )
+
+
+            print(
+                "Upcoming appointment found:"
+            )
+
+            print(
+                appointment
+            )
+
+            print(
+                "Cancellation confirmation requested."
+            )
+
+            print(
+                "=================================\n"
+            )
+
+
+            return reply
+
+
+        # =================================================
+        # STEP 2
+        # User is responding to confirmation
+        # =================================================
 
         elif self.state["stage"] == "CANCEL_CONFIRM":
+
+
+            # =================================================
+            # USER CONFIRMED
+            # =================================================
 
             if self.is_confirmation(
                 user_message
             ):
 
-                appointment = self.state[
-                    "cancellation_appointment"
-                ]
+                appointment = (
+                    self.state[
+                        "cancellation_appointment"
+                    ]
+                )
+
+
+                if not appointment:
+
+                    reply = (
+                        "I couldn't find the appointment "
+                        "details. Please try the cancellation "
+                        "request again."
+                    )
+
+
+                    self.state[
+                        "cancellation_requested"
+                    ] = False
+
+
+                    self.state[
+                        "stage"
+                    ] = "ASK_SYMPTOMS"
+
+
+                    self.save_conversation(
+                        user_message,
+                        reply
+                    )
+
+
+                    return reply
+
+
+                print(
+                    "\nCancelling appointment..."
+                )
 
 
                 cancelled = (
                     self.scheduler.cancel_appointment(
+
                         self.user_id,
+
                         appointment["id"]
+
                     )
                 )
 
+
+                # -------------------------------------------------
+                # Cancellation successful
+                # -------------------------------------------------
 
                 if cancelled:
 
@@ -254,55 +505,83 @@ class ConversationManager:
                         "cancellation_complete"
                     ] = True
 
+                    self.state[
+                    "booking_complete"
+                    ] = False
+
+
+                    self.state[
+                        "cancellation_requested"
+                    ] = False
+
 
                     self.state[
                         "stage"
                     ] = "CANCELLATION_COMPLETE"
 
 
-                else:
-
-                    self.state[
-                        "stage"
-                    ] = "CANCEL_CONFIRM"
+                    doctor_name = (
+                        appointment.get(
+                            "doctor_name",
+                            "your doctor"
+                        )
+                    )
 
 
                     reply = (
-                        "Sorry, I couldn't cancel "
-                        "the appointment. Please try again."
+
+                        f"Your appointment with "
+                        f"{doctor_name} has been "
+                        f"successfully cancelled."
+
                     )
 
 
-                    self.history.append(
-                        HumanMessage(
-                            content=user_message
-                        )
-                    )
-
-                    self.history.append(
-                        AIMessage(
-                            content=reply
-                        )
+                    self.save_conversation(
+                        user_message,
+                        reply
                     )
 
 
-                    self.state[
-                        "conversation"
-                    ].append({
+                    print(
+                        "Appointment cancelled successfully."
+                    )
 
-                        "user": user_message,
-
-                        "assistant": reply
-
-                    })
+                    print(
+                        "=================================\n"
+                    )
 
 
                     return reply
 
 
-            # -------------------------------------------------
-            # User says NO
-            # -------------------------------------------------
+                # -------------------------------------------------
+                # Cancellation failed
+                # -------------------------------------------------
+
+                else:
+
+                    reply = (
+
+                        "Sorry, I couldn't cancel "
+                        "your appointment right now. "
+                        "Please try again."
+
+                    )
+
+
+                    self.save_conversation(
+                        user_message,
+                        reply
+                    )
+
+
+                    return reply
+
+
+            # =================================================
+            # USER SAID NO
+            # =================================================
 
             elif self.is_negative(
                 user_message
@@ -333,88 +612,37 @@ class ConversationManager:
                 )
 
 
-                self.history.append(
-                    HumanMessage(
-                        content=user_message
-                    )
+                self.save_conversation(
+                    user_message,
+                    reply
                 )
-
-                self.history.append(
-                    AIMessage(
-                        content=reply
-                    )
-                )
-
-
-                self.state[
-                    "conversation"
-                ].append({
-
-                    "user": user_message,
-
-                    "assistant": reply
-
-                })
 
 
                 return reply
 
 
-        # -------------------------------------------------
-        # Generate cancellation response
-        # -------------------------------------------------
+            # =================================================
+            # UNCLEAR RESPONSE
+            # =================================================
 
-        appointment = self.state[
-            "cancellation_appointment"
-        ]
+            else:
 
+                reply = (
 
-        context = {
+                    "Please confirm whether you want "
+                    "to cancel the appointment. "
+                    "You can say yes or no."
 
-            "appointment": appointment
-
-        }
-
-
-        reply = self.generator.generate(
-
-            self.state["stage"],
-
-            user_message,
-
-            self.history,
-
-            context
-
-        )
+                )
 
 
-        self.history.append(
-            HumanMessage(
-                content=user_message
-            )
-        )
+                self.save_conversation(
+                    user_message,
+                    reply
+                )
 
 
-        self.history.append(
-            AIMessage(
-                content=reply
-            )
-        )
-
-
-        self.state[
-            "conversation"
-        ].append({
-
-            "user": user_message,
-
-            "assistant": reply
-
-        })
-
-
-        return reply
+                return reply
 
 
     # =====================================================
@@ -424,14 +652,17 @@ class ConversationManager:
     def process(self, user_message):
 
         # =================================================
-        # CHECK FOR CANCELLATION
+        # CHECK FOR NEW CANCELLATION REQUEST
         # =================================================
 
         if self.is_cancellation_request(
             user_message
         ):
 
-            self.state["intent"] = "CANCEL_APPOINTMENT"
+            self.state[
+                "intent"
+            ] = "CANCEL_APPOINTMENT"
+
 
             return self.process_cancellation(
                 user_message
@@ -439,12 +670,21 @@ class ConversationManager:
 
 
         # =================================================
-        # CONTINUE CANCELLATION CONFIRMATION
+        # CONTINUE EXISTING CANCELLATION FLOW
         # =================================================
 
         if (
-            self.state["cancellation_requested"]
-            and self.state["stage"] == "CANCEL_CONFIRM"
+
+            self.state[
+                "cancellation_requested"
+            ]
+
+            and
+
+            self.state[
+                "stage"
+            ] == "CANCEL_CONFIRM"
+
         ):
 
             return self.process_cancellation(
@@ -466,24 +706,20 @@ class ConversationManager:
             "\n========== EXTRACTOR DEBUG =========="
         )
 
-
         print(
             "Stage:",
             self.state["stage"]
         )
-
 
         print(
             "User message:",
             user_message
         )
 
-
         print(
             "Extracted:",
             extracted
         )
-
 
         print(
             "=====================================\n"
@@ -531,16 +767,25 @@ class ConversationManager:
 
 
             if (
+
                 selected_doctor == "any"
-                and len(
-                    self.state["available_doctors"]
+
+                and
+
+                len(
+                    self.state[
+                        "available_doctors"
+                    ]
                 ) > 0
+
             ):
 
                 patient["doctor"] = (
+
                     self.state[
                         "available_doctors"
                     ][0]["doctor"]
+
                 )
 
 
@@ -652,7 +897,7 @@ class ConversationManager:
 
 
         # =================================================
-        # SCHEDULER
+        # GET AVAILABLE DOCTORS
         # =================================================
 
         if (
@@ -741,7 +986,7 @@ class ConversationManager:
 
 
         # =================================================
-        # DECIDE NEXT STAGE
+        # NEXT STAGE
         # =================================================
 
         self.state["stage"] = (
@@ -796,7 +1041,9 @@ class ConversationManager:
 
 
         # =================================================
-        # GENERATE RESPONSE
+        # GENERATE NORMAL RESPONSE
+        #
+        # LLM is still used here.
         # =================================================
 
         reply = self.generator.generate(
@@ -816,33 +1063,10 @@ class ConversationManager:
         # SAVE CONVERSATION
         # =================================================
 
-        self.history.append(
-
-            HumanMessage(
-                content=user_message
-            )
-
+        self.save_conversation(
+            user_message,
+            reply
         )
-
-
-        self.history.append(
-
-            AIMessage(
-                content=reply
-            )
-
-        )
-
-
-        self.state[
-            "conversation"
-        ].append({
-
-            "user": user_message,
-
-            "assistant": reply
-
-        })
 
 
         # =================================================
@@ -853,45 +1077,39 @@ class ConversationManager:
             "\n========== CURRENT PATIENT STATE =========="
         )
 
-
         print(
             self.state["patient"]
         )
-
 
         print(
             "\n========== AVAILABLE DOCTORS =========="
         )
 
-
         print(
             self.state["available_doctors"]
         )
-
 
         print(
             "\nCurrent Stage :",
             self.state["stage"]
         )
 
-
         print(
             "Intent :",
             self.state["intent"]
         )
-
 
         print(
             "User ID :",
             self.user_id
         )
 
-
         print(
             "Booking Complete :",
-            self.state["booking_complete"]
+            self.state[
+                "booking_complete"
+            ]
         )
-
 
         print(
             "Cancellation Requested :",
@@ -900,14 +1118,12 @@ class ConversationManager:
             ]
         )
 
-
         print(
             "Cancellation Complete :",
             self.state[
                 "cancellation_complete"
             ]
         )
-
 
         print(
             "===========================================\n"

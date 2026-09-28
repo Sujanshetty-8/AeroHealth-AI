@@ -300,12 +300,10 @@ class Scheduler:
             .gte("appointment_date", today)
             .eq("status", "confirmed")
             .order(
-                "appointment_date",
-                ascending=True
+                "appointment_date"
             )
             .order(
-                "appointment_time",
-                ascending=True
+                "appointment_time"
             )
             .limit(1)
             .execute()
