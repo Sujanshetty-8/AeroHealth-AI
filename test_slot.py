@@ -1,9 +1,10 @@
-from services.slot_generator import SlotGenerator
+from agents.extractor import Extractor
 
-generator = SlotGenerator()
+extractor = Extractor()
 
-print("Generating today's slots...")
-
-generator.generate_today_slots()
-
-print("Done.")
+print(
+    extractor.extract(
+        "8965741236",
+        "ASK_PHONE"
+    )
+)

@@ -13,11 +13,12 @@ class Patient(TypedDict):
 
 class ConversationState(TypedDict):
     conversation: List[str]
-
     stage: str
-
     intent: Optional[str]
-
     patient: Patient
-
     booking_complete: bool
+
+    # Cancellation information
+    cancellation_requested: bool
+    cancellation_complete: bool
+    cancellation_appointment: Optional[dict]

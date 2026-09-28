@@ -16,6 +16,7 @@ class LanguageGenerator:
             "prompts/receptionist.txt"
         ).read_text(encoding="utf-8")
 
+
     def generate(
         self,
         stage,
@@ -26,6 +27,7 @@ class LanguageGenerator:
 
         context_text = ""
 
+
         if context:
 
             context_text = f"""
@@ -33,11 +35,17 @@ Additional Context:
 {context}
 """
 
+
         # -----------------------------------
         # Stage-specific instructions
         # -----------------------------------
 
         stage_instruction = ""
+
+
+        # -----------------------------
+        # ASK SYMPTOMS
+        # -----------------------------
 
         if stage == "ASK_SYMPTOMS":
 
@@ -52,6 +60,11 @@ Do not give medical advice.
 Do not ask about duration or severity unless the patient already mentioned it.
 """
 
+
+        # -----------------------------
+        # ASK NAME
+        # -----------------------------
+
         elif stage == "ASK_NAME":
 
             stage_instruction = """
@@ -64,6 +77,11 @@ Do NOT ask medical follow-up questions.
 Do NOT diagnose.
 Do NOT provide medical advice.
 """
+
+
+        # -----------------------------
+        # ASK AGE
+        # -----------------------------
 
         elif stage == "ASK_AGE":
 
@@ -78,8 +96,12 @@ Do NOT diagnose.
 Do NOT provide medical advice.
 """
 
-        elif stage == "SCHEDULER":
 
+        # -----------------------------
+        # SCHEDULER
+        # -----------------------------
+
+        elif stage == "SCHEDULER":
 
             stage_instruction = """
 The patient's department has been determined.
@@ -104,6 +126,11 @@ Do NOT invent availability.
 Only use doctors provided in Additional Context.
 """
 
+
+        # -----------------------------
+        # ASK SLOT
+        # -----------------------------
+
         elif stage == "ASK_SLOT":
 
             stage_instruction = """
@@ -123,15 +150,88 @@ Do NOT invent slots.
 Do NOT invent doctors.
 """
 
-        elif stage == "BOOKING_COMPLETE":
+
+        # -----------------------------
+        # ASK PHONE
+        # -----------------------------
+
+        elif stage == "ASK_PHONE":
 
             stage_instruction = """
 The patient has selected a doctor and appointment slot.
 
-Respond briefly that the appointment can be confirmed.
+Your ONLY task is to ask the patient for their contact phone number
+to finalize and confirm the appointment booking.
 
-Do NOT invent any doctor or slot.
+Do NOT say that the appointment has already been booked or confirmed yet.
+
+Do NOT ask about symptoms, doctor, or slot again.
 """
+
+
+        # -----------------------------
+        # BOOKING COMPLETE
+        # -----------------------------
+
+        elif stage == "BOOKING_COMPLETE":
+
+            stage_instruction = """
+The patient's appointment has been successfully booked in the database.
+
+Confirm to the patient that their appointment is booked.
+
+Keep the response brief, friendly, and polite.
+
+Do NOT invent any doctor or slot details.
+"""
+
+
+        # -----------------------------
+        # CANCEL CONFIRMATION
+        # -----------------------------
+
+        elif stage == "CANCEL_CONFIRM":
+
+            stage_instruction = """
+The patient wants to cancel their upcoming appointment.
+
+An existing appointment is provided in Additional Context.
+
+Tell the patient which appointment is currently scheduled
+and ask whether they want to cancel it.
+
+Use ONLY the appointment information provided in Additional Context.
+
+Do NOT invent appointment details.
+
+Do NOT cancel the appointment yourself.
+
+Wait for the patient's confirmation.
+
+Keep the response short and polite.
+"""
+
+
+        # -----------------------------
+        # CANCELLATION COMPLETE
+        # -----------------------------
+
+        elif stage == "CANCELLATION_COMPLETE":
+
+            stage_instruction = """
+The patient's appointment has been successfully cancelled.
+
+Tell the patient that their appointment has been cancelled.
+
+Keep the response brief, friendly, and polite.
+
+Do NOT invent any appointment details.
+"""
+
+
+        # -----------------------------------
+        # SYSTEM PROMPT
+        # -----------------------------------
 
         system_content = f"""{self.system_prompt}
 
@@ -144,31 +244,42 @@ Current Stage: {stage}
 
 ### GENERAL INSTRUCTIONS ###
 - Reply ONLY as the AeroHealth receptionist.
-- Continue the current booking workflow.
+- Continue the current workflow.
 - Do NOT change the stage.
 - Do NOT diagnose the patient.
 - Do NOT provide medical advice.
-- Do NOT ask medical follow-up questions.
 - Do NOT ask questions unrelated to the current stage.
 - Keep the response short and polite.
 - Never invent doctors.
 - Never invent appointment slots.
 - Never invent departments.
+- Never invent appointment details.
 - Only use information provided in the Additional Context.
 """
 
+
         messages = [
+
             SystemMessage(
                 content=system_content
             )
+
         ]
+
 
         messages.extend(history)
 
+
         messages.append(
-            HumanMessage(content=user_message)
+            HumanMessage(
+                content=user_message
+            )
         )
 
-        response = llm.invoke(messages)
+
+        response = llm.invoke(
+            messages
+        )
+
 
         return response.content

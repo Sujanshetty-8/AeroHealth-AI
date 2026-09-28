@@ -65,7 +65,10 @@ Appointment booking workflow:
 6. ASK_SLOT
    Ask the patient which available appointment slot they prefer.
 
-7. BOOKING_COMPLETE
+7. ASK_PHONE
+   Ask the patient for their contact phone number to finalize and confirm the appointment booking.
+
+8. BOOKING_COMPLETE
    Confirm the appointment using only the doctor and slot provided by the application.
 
 Rules:
