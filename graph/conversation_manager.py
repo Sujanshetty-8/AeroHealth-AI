@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from agents.translator import Translator
 from agents.extractor import Extractor
 from agents.language_generator import LanguageGenerator
 from agents.triage import Triage
@@ -23,6 +23,8 @@ class ConversationManager:
 
         self.extractor = Extractor()
 
+        self.translator = Translator()
+
         self.triage = Triage()
 
         self.history = []
@@ -37,6 +39,8 @@ class ConversationManager:
             "stage": "ASK_SYMPTOMS",
 
             "intent": "BOOK_APPOINTMENT",
+
+            "language": "en",
 
             "patient": {
 
@@ -59,6 +63,8 @@ class ConversationManager:
             "available_doctors": [],
 
             "booking_complete": False,
+
+            "booking_failed": False,
 
             "cancellation_requested": False,
 
@@ -643,7 +649,200 @@ class ConversationManager:
 
 
                 return reply
+    # =====================================================
+# CONTROLLED RESPONSE GENERATOR
+# =====================================================
 
+    def generate_controlled_response(self):
+
+        patient = self.state["patient"]
+
+        stage = self.state["stage"]
+
+
+        # =================================================
+        # BOOKING SUCCESS
+        # =================================================
+
+        if self.state["booking_complete"]:
+
+            return (
+                f"Your appointment with "
+                f"{patient['doctor']} "
+                f"has been successfully booked "
+                f"for {patient['slot']}."
+            )
+
+
+        # =================================================
+        # BOOKING FAILURE
+        # =================================================
+
+        if self.state.get("booking_failed", False):
+
+            return (
+                "I'm sorry, but I could not complete "
+                "your appointment booking. "
+                "The appointment was not confirmed "
+                "in the hospital system. "
+                "Please select another available slot."
+            )
+
+
+        # =================================================
+        # MISSING SYMPTOMS
+        # =================================================
+
+        if patient["symptoms"] is None:
+
+            return (
+                "Please tell me about your symptoms "
+                "so I can help you find the appropriate "
+                "department."
+            )
+
+
+        # =================================================
+        # MISSING NAME
+        # =================================================
+
+        if patient["name"] is None:
+
+            return (
+                "May I have your name, please?"
+            )
+
+
+        # =================================================
+        # MISSING AGE
+        # =================================================
+
+        if patient["age"] is None:
+
+            return (
+                "May I know your age, please?"
+            )
+
+
+        # =================================================
+        # MISSING DEPARTMENT
+        # =================================================
+
+        if patient["department"] is None:
+
+            return (
+                "I could not determine the appropriate "
+                "department yet. Please tell me your "
+                "symptoms again."
+            )
+
+
+        # =================================================
+        # MISSING DOCTOR
+        # =================================================
+
+        if patient["doctor"] is None:
+
+            doctors = self.state[
+                "available_doctors"
+            ]
+
+            if not doctors:
+
+                return (
+                    "I'm sorry, but there are currently "
+                    "no available doctors for this department."
+                )
+
+
+            doctor_names = [
+                doctor["doctor"]
+                for doctor in doctors
+            ]
+
+
+            doctor_list = ", ".join(
+                doctor_names
+            )
+
+
+            return (
+                f"The available doctors are "
+                f"{doctor_list}. "
+                f"Which doctor would you prefer?"
+            )
+
+
+        # =================================================
+        # MISSING SLOT
+        # =================================================
+
+        if patient["slot"] is None:
+
+            selected_doctor = patient["doctor"]
+
+            for doctor_data in self.state[
+                "available_doctors"
+            ]:
+
+                if (
+                    doctor_data["doctor"]
+                    == selected_doctor
+                ):
+
+                    slots = doctor_data.get(
+                        "slots",
+                        []
+                    )
+
+                    if not slots:
+
+                        return (
+                            "I'm sorry, but there are "
+                            "currently no available slots "
+                            "for this doctor."
+                        )
+
+
+                    slot_list = ", ".join(
+                        slots
+                    )
+
+
+                    return (
+                        f"The available appointment "
+                        f"slots for {selected_doctor} "
+                        f"are {slot_list}. "
+                        f"Which time would you prefer?"
+                    )
+
+
+            return (
+                f"Please select an available "
+                f"appointment slot for {selected_doctor}."
+            )
+
+
+        # =================================================
+        # MISSING PHONE
+        # =================================================
+
+        if patient["phone"] is None:
+
+            return (
+                "May I have your phone number "
+                "to complete the appointment booking?"
+            )
+
+
+        # =================================================
+        # SAFETY FALLBACK
+        # =================================================
+
+        return (
+            "Please provide the requested information "
+            "so I can continue with your appointment."
+        )
 
     # =====================================================
     # NORMAL PROCESS
@@ -662,7 +861,6 @@ class ConversationManager:
             self.state[
                 "intent"
             ] = "CANCEL_APPOINTMENT"
-
 
             return self.process_cancellation(
                 user_message
@@ -693,11 +891,37 @@ class ConversationManager:
 
 
         # =================================================
+        # HANDLE KANNADA INPUT
+        # =================================================
+
+        # If the user speaks Kannada, remember that
+        # the conversation should continue in Kannada.
+
+        if self.translator.contains_kannada(
+            user_message
+        ):
+
+            self.state[
+                "language"
+            ] = "kn"
+
+
+        # Translate Kannada into English for
+        # the existing appointment pipeline.
+
+        internal_message = (
+            self.translator.to_english(
+                user_message
+            )
+        )
+
+
+        # =================================================
         # EXTRACT INFORMATION
         # =================================================
 
         extracted = self.extractor.extract(
-            user_message,
+            internal_message,
             self.state["stage"]
         )
 
@@ -712,8 +936,13 @@ class ConversationManager:
         )
 
         print(
-            "User message:",
+            "Original User message:",
             user_message
+        )
+
+        print(
+            "Internal message:",
+            internal_message
         )
 
         print(
@@ -984,6 +1213,20 @@ class ConversationManager:
                     "booking_complete"
                 ] = True
 
+                self.state[
+                "booking_failed"
+                ] = False
+
+            else:
+
+                self.state[
+                    "booking_complete"
+                ] = False
+
+                self.state[
+                    "booking_failed"
+                ] = True
+
 
         # =================================================
         # NEXT STAGE
@@ -1041,27 +1284,34 @@ class ConversationManager:
 
 
         # =================================================
-        # GENERATE NORMAL RESPONSE
-        #
-        # LLM is still used here.
+        # GENERATE controlled RESPONSE
         # =================================================
 
-        reply = self.generator.generate(
+        
 
-            self.state["stage"],
+        reply = self.generate_controlled_response()
 
-            user_message,
 
-            self.history,
+        # =================================================
+        # TRANSLATE RESPONSE TO KANNADA
+        # =================================================
 
-            context
+        # If the conversation started in Kannada,
+        # translate the AI response back to Kannada.
 
-        )
+        if self.state["language"] == "kn":
+
+            reply = self.translator.to_kannada(
+                reply
+            )
 
 
         # =================================================
         # SAVE CONVERSATION
         # =================================================
+
+        # Save the original user message and the
+        # final response shown to the user.
 
         self.save_conversation(
             user_message,
@@ -1097,6 +1347,11 @@ class ConversationManager:
         print(
             "Intent :",
             self.state["intent"]
+        )
+
+        print(
+            "Language :",
+            self.state["language"]
         )
 
         print(

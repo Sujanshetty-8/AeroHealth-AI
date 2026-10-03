@@ -74,23 +74,35 @@ def get_whisper_model():
     if _whisper_model is None:
 
         print(
-            "Loading Whisper model on demand..."
+            "\nLoading multilingual Whisper model..."
+        )
+
+        print(
+            "Model: base"
+        )
+
+        print(
+            "Device: CPU"
+        )
+
+        print(
+            "Compute type: int8"
         )
 
 
         _whisper_model = WhisperModel(
 
-            "tiny.en",
+            "small",
 
             device="cpu",
 
-            compute_type="default"
+            compute_type="int8"
 
         )
 
 
         print(
-            "Whisper model loaded!"
+            "Whisper multilingual model loaded!"
         )
 
 
@@ -127,6 +139,7 @@ class ChatResponse(BaseModel):
     "/chat",
     response_model=ChatResponse
 )
+
 async def chat_endpoint(
     req: ChatRequest
 ):
@@ -239,6 +252,7 @@ async def chat_endpoint(
 @app.delete(
     "/chat/{session_id}"
 )
+
 async def clear_session(
     session_id: str
 ):
@@ -262,6 +276,7 @@ async def clear_session(
 @app.post(
     "/transcribe"
 )
+
 async def transcribe_audio(
     audio: UploadFile = File(...)
 ):
@@ -289,7 +304,7 @@ async def transcribe_audio(
     try:
 
         # -----------------------------
-        # Load Whisper
+        # Load multilingual Whisper
         # -----------------------------
 
         model = get_whisper_model()
@@ -298,15 +313,39 @@ async def transcribe_audio(
         # -----------------------------
         # Transcribe
         # -----------------------------
+        #
+        # language=None
+        # means Whisper automatically
+        # detects the spoken language.
+        #
+        # This allows:
+        #
+        # English
+        # Kannada
+        # and other supported languages.
+        #
+        # -----------------------------
 
         segments, info = model.transcribe(
 
             temp_file_path,
 
-            beam_size=5
+            beam_size=5,
+
+            language="kn",
+
+            task="transcribe",
+
+            vad_filter=True,
+
+            condition_on_previous_text=False
 
         )
 
+
+        # -----------------------------
+        # Combine segments
+        # -----------------------------
 
         text = " ".join(
 
@@ -318,8 +357,59 @@ async def transcribe_audio(
         ).strip()
 
 
+        # -----------------------------
+        # Detected language
+        # -----------------------------
+
+        detected_language = (
+            info.language
+            if info
+            else None
+        )
+
+
+        language_probability = (
+
+            info.language_probability
+            if info
+            else None
+
+        )
+
+
+        print(
+            "\n========== SPEECH RECOGNITION =========="
+        )
+
+        print(
+            "Detected language:",
+            detected_language
+        )
+
+        print(
+            "Language probability:",
+            language_probability
+        )
+
+        print(
+            "Transcribed text:",
+            text
+        )
+
+        print(
+            "=========================================\n"
+        )
+
+
         return {
-            "text": text
+
+            "text": text,
+
+            "language": detected_language,
+
+            "language_probability":
+                language_probability
+
         }
 
 

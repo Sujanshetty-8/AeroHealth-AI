@@ -168,6 +168,8 @@ Examples:
 "at 4 pm"
 "4 pm please"
 "I want 12:30 PM"
+"11:30 a.m"
+
 
 Return the requested time exactly as mentioned
 by the user.
