@@ -24,6 +24,7 @@ import {
   Stethoscope,
   MessageCircle,
   Mic,
+  PhoneCall,
 } from 'lucide-react';
 
 
@@ -204,6 +205,17 @@ function Receptionist({ user, onLogout }) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+
+  // =====================================================
+  // PHONE CALLBACK
+  // =====================================================
+
+  const [showCallbackForm, setShowCallbackForm] = useState(false);
+  const [callbackPhone, setCallbackPhone] = useState('');
+  const [callbackConsent, setCallbackConsent] = useState(false);
+  const [callbackLoading, setCallbackLoading] = useState(false);
+  const [callbackStatus, setCallbackStatus] = useState('');
+  const [callbackStatusType, setCallbackStatusType] = useState('info');
 
 
   // =====================================================
@@ -631,6 +643,72 @@ function Receptionist({ user, onLogout }) {
     setInput,
     handleAudioSubmit
   );
+
+
+  // =====================================================
+  // REQUEST A CALLBACK
+  // =====================================================
+
+  const requestCallback = async (event) => {
+
+    event.preventDefault();
+    setCallbackStatus('');
+
+    if (!callbackConsent) {
+      setCallbackStatusType('error');
+      setCallbackStatus('Please confirm your consent before requesting a call.');
+      return;
+    }
+
+    if (!callbackPhone.trim()) {
+      setCallbackStatusType('error');
+      setCallbackStatus('Enter the Indian mobile number you want us to call.');
+      return;
+    }
+
+    setCallbackLoading(true);
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        throw new Error('Your login session has expired. Please sign in again.');
+      }
+
+      const response = await fetch('/request-callback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          phone_number: callbackPhone.trim(),
+          consent: callbackConsent,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Could not request a callback. Please try again.');
+      }
+
+      setCallbackStatusType('success');
+      setCallbackStatus(data.message || 'Your callback request was accepted. AeroHealth AI will call you shortly.');
+      setShowCallbackForm(false);
+      setCallbackConsent(false);
+
+    } catch (error) {
+      setCallbackStatusType('error');
+      setCallbackStatus(error.message || 'Could not request a callback. Please try again.');
+    } finally {
+      setCallbackLoading(false);
+    }
+
+  };
 
 
   // =====================================================
@@ -1998,6 +2076,91 @@ return (
                 max-w-4xl
                 mx-auto
               ">
+
+                <div className="mb-3">
+
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <p className="text-sm text-slate-500">Prefer speaking over the phone?</p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCallbackForm((current) => !current);
+                        setCallbackStatus('');
+                      }}
+                      className="inline-flex items-center justify-center gap-2 self-start sm:self-auto px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-semibold transition"
+                    >
+                      <PhoneCall size={16} />
+                      Request a Call
+                    </button>
+                  </div>
+
+                  {showCallbackForm && (
+                    <form
+                      onSubmit={requestCallback}
+                      className="mt-3 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3"
+                    >
+                      <label className="block text-sm font-medium text-slate-700" htmlFor="callback-phone">
+                        Indian mobile number
+                      </label>
+                      <input
+                        id="callback-phone"
+                        type="tel"
+                        autoComplete="tel-national"
+                        inputMode="tel"
+                        value={callbackPhone}
+                        onChange={(event) => setCallbackPhone(event.target.value)}
+                        placeholder="e.g. 9876543210 or +91 9876543210"
+                        maxLength={18}
+                        required
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+
+                      <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={callbackConsent}
+                          onChange={(event) => setCallbackConsent(event.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          required
+                        />
+                        <span>I consent to receive an automated call from AeroHealth AI at this number to discuss booking an appointment. Phone charges may apply. I can end the call at any time.</span>
+                      </label>
+
+                      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCallbackForm(false);
+                            setCallbackConsent(false);
+                          }}
+                          disabled={callbackLoading}
+                          className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={callbackLoading || !callbackConsent}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <PhoneCall size={15} />
+                          {callbackLoading ? 'Requesting call…' : 'Confirm callback'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {callbackStatus && (
+                    <p
+                      role="status"
+                      className={`mt-2 text-sm ${callbackStatusType === 'success' ? 'text-green-700' : callbackStatusType === 'error' ? 'text-red-600' : 'text-slate-600'}`}
+                    >
+                      {callbackStatus}
+                    </p>
+                  )}
+
+                </div>
 
                 <ChatInput
 
